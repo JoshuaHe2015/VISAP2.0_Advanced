@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
-namespace QuickPlot
+namespace VISAP商科应用
 {
     public class QuickPlot
     {
-        public static void QPlot(DataGridView dataGridView1, Chart chart_basic, int xCol, int yCol, string type, string Legend = "", string xlab = "", string ylab = "")
+        public static void QPlot(DataGridView dataGridView1, Chart chart_basic, int xCol, int yCol, TextBox ChooseColor,string type, string Legend = "")
         {
             //如果xCol = -1，则认为x轴没有数值
             //yCol必须存在
@@ -18,6 +18,9 @@ namespace QuickPlot
             series.BorderWidth = 3;
             series.MarkerSize = 6;
             series.MarkerStyle = MarkerStyle.Circle;
+            if (Legend != ""){
+                series.LegendText = Legend;
+            }
             if (type == "散点图")
             {
                 series.ChartType = SeriesChartType.Point;
@@ -29,6 +32,10 @@ namespace QuickPlot
             else if (type == "箱线图")
             {
                 series.ChartType = SeriesChartType.BoxPlot;
+            }
+            if (ChooseColor.Text != "随机颜色")
+            {
+                series.Color = ChooseColor.BackColor;
             }
             double TempX = 0;
             double TempY = 0;
