@@ -14,6 +14,7 @@ namespace 箱线图
         int Rank;
         public BigDecimal(string Str)
         {
+            StringBuilder Numbers = new StringBuilder(Str);
             int DecimalPoint = Str.IndexOf('.');
             if (DecimalPoint == -1)
             {
@@ -23,7 +24,8 @@ namespace 箱线图
             else
             {
                 Rank = -(Str.Length - DecimalPoint - 1);
-                IntPart = Str.Remove(DecimalPoint, 1);
+                //IntPart = Str.Remove(DecimalPoint, 1);
+                IntPart = Numbers.Remove(DecimalPoint, 1).ToString();
             }
         }
         public BigDecimal(string i,int r)
@@ -39,7 +41,23 @@ namespace 箱线图
         {
             return IntPart;
         }
-        
+        static BigInteger TenEight = 100000000;
+        public static BigInteger Transform(string Numbers)
+        {
+            BigInteger x = 0;
+            int len = Numbers.Length;
+            for (int Start = 0;Start < len;Start = Start + 8){
+                if (Start + 8 <= len){
+                    x = Convert.ToInt32(Numbers.Substring(Start, 8)) + x * TenEight;
+                }
+                else{
+                    x = Convert.ToInt32(Numbers.Substring(Start,Numbers.Length - Start)) + x * BigInteger.Pow(10,len - Start);
+                }
+            }
+           
+            return x;
+            
+        }
         public static BigDecimal Add(BigDecimal Num1, BigDecimal Num2)
         {
             int Rank1 = Num1.AcquireRank();
@@ -50,85 +68,34 @@ namespace 箱线图
             {
                 //第一个数字小数点需往右边移动
                 StringBuilder Str = new StringBuilder();
-                for (int i = 0; i < Rank1 - Rank2; i++)
-                    Str.Append("0");
                 Str.Append(IntPart1);
-                BigInteger x = BigInteger.Parse(Str.ToString()) + BigInteger.Parse(IntPart2);
+                string AddZero = new string('0', Rank1 - Rank2);
+                Str.Append(AddZero);
+                //BigInteger x = BigInteger.Parse(Str.ToString()) + BigInteger.Parse(IntPart2);
+                BigInteger x = Transform(Str.ToString()) + Transform(IntPart2);
                 return new BigDecimal(x.ToString(), Rank2);
             }
             else if (Rank1 < Rank2)
             {
                 //第二个数字小数点需往右边移动
                 StringBuilder Str = new StringBuilder();
-                for (int i = 0; i < Rank2 - Rank1; i++)
-                    Str.Append("0");
                 Str.Append(IntPart2);
-                BigInteger x = BigInteger.Parse(Str.ToString()) + BigInteger.Parse(IntPart1);
+                string AddZero = new string('0', Rank2 - Rank1);
+                Str.Append(AddZero);
+                //BigInteger x = BigInteger.Parse(Str.ToString()) + BigInteger.Parse(IntPart1);
+                BigInteger x = Transform(Str.ToString()) + Transform(IntPart1);
                 return new BigDecimal(x.ToString(), Rank1);
             }
             else
             {
                 //无需调整
-                BigInteger x = BigInteger.Parse(IntPart1) + BigInteger.Parse(IntPart2);
+                //BigInteger x = BigInteger.Parse(IntPart1) + BigInteger.Parse(IntPart2);
+                BigInteger x = Transform(IntPart1) + Transform(IntPart2);
                 return new BigDecimal(x.ToString(), Rank1);
             }
         }
         
-       /* public static BigDecimal Add(BigDecimal Num1, BigDecimal Num2)
-        {
-            int Rank1 = Num1.AcquireRank();
-            int Rank2 = Num2.AcquireRank();
-            if (Rank1 == Rank2)
-            {
-                BigInteger x = BigInteger.Parse(Num1.AcquireIntPart()) + BigInteger.Parse(Num2.AcquireIntPart());
-                if (Rank1 < 0)
-                {
-                    //小数
-                    //6*10^(-7) 
-                    string Result = x.ToString().Insert(x.ToString().Length + Rank1, ".");
-                    return new BigDecimal(Result);
-                }
-                else if (Rank1 > 0)
-                {
-                    //整数 3×10^2
-                    string AddZero = new string('0', -Rank1);
-                    string Result = x.ToString()+AddZero;
-
-                    return new BigDecimal(Result);
-                }
-                else
-                {
-                    return new BigDecimal(x.ToString());
-                }
-            }
-            else if (Rank1 > Rank2)
-            {
-                if (Rank2 < 0)
-                {
-                    string AdjIntPart;
-                    string AddZero = new string('0', Rank1 - Rank2);
-                    AdjIntPart = Num1.AcquireIntPart() + AddZero;
-                    BigInteger x = BigInteger.Parse(AdjIntPart) + BigInteger.Parse(Num2.AcquireIntPart());
-                    string Result = x.ToString().Insert(x.ToString().Length + Rank2, ".");
-                    return new BigDecimal(Result);
-                }
-                else
-                {
-                    //Rank2 >= 0
-                    string AdjIntPart;
-                    string AddZero = new string('0', Rank1 - Rank2);
-                    AdjIntPart = Num1.AcquireIntPart() + AddZero;
-                    BigInteger x = BigInteger.Parse(Num1.AcquireIntPart()) + BigInteger.Parse(AdjIntPart);
-                    string Result = x.ToString()+new string ('0',Rank2);
-                    return new BigDecimal(Result);
-                }
-                }
-            else
-            {
-                return Add(Num2,Num1);
-            }
-           
-        }*/
+       
         public override string ToString()
         {
             if (Rank == 0)
@@ -145,8 +112,8 @@ namespace 箱线图
                     //string AddZero = new string('0', -Rank - len);
                     StringBuilder Str = new StringBuilder();
                     Str.Append("0.");
-                    for (int i = 0; i < -Rank - len; i++)
-                        Str.Append("0");
+                    string AddZero = new string('0', -Rank - len);
+                    Str.Append(AddZero);
                     Str.Append(IntPart);
                     return Str.ToString();
                 }
@@ -163,8 +130,8 @@ namespace 箱线图
                 //string  AddZero = new string('0', -Rank );
                 StringBuilder Str = new StringBuilder();
                 Str.Append(IntPart);
-                for (int i = 0; i < -Rank;i++)
-                    Str.Append("0");
+                string AddZero = new string('0', -Rank);
+                Str.Append(AddZero);
                 return Str.ToString();
             }
             
