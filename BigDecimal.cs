@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Numerics;
-namespace BigDecimal
+namespace VISAP商科应用
 {
     public class BigDecimal
     {
