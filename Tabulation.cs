@@ -242,7 +242,7 @@ namespace VISAP商科应用
             return result;
         }
 
-        public static void ExportExcel(DataGridView dataGridView1)
+        public static void ExportExcel(DataTable MainDT)
         {
             //用于导出Excel文件
             //参数为dataGridView
@@ -263,32 +263,33 @@ namespace VISAP商科应用
             string str = "";
             try
             {
-                for (int i = 0; i < dataGridView1.ColumnCount; i++)
+                for (int i = 0; i < MainDT.Columns.Count; i++)
                 {
                     if (i > 0)
                     {
                         str += "\t";
                     }
-                    str += dataGridView1.Columns[i].HeaderText;
+                    str += MainDT.Columns[i].ColumnName;
                 }
                 sw.WriteLine(str);
                 //行数减去1
-                for (int j = 0; j < dataGridView1.Rows.Count - 1; j++)
+                for (int j = 0; j < MainDT.Rows.Count; j++)
                 {
                    
                     string tempStr = "";
-                    for (int k = 0; k < dataGridView1.Columns.Count; k++)
+                    for (int k = 0; k < MainDT.Columns.Count; k++)
                     {
                         if (k > 0)
                         {
                             tempStr += "\t";
                         }
-                        tempStr += dataGridView1.Rows[j].Cells[k].Value.ToString();
+                        tempStr += MainDT.Rows[j][k].ToString();
                     }
                     sw.WriteLine(tempStr);
                 }
                 sw.Close();
                 myStream.Close();
+                return;
             }
             catch (Exception ex)
             {
@@ -418,7 +419,10 @@ namespace VISAP商科应用
             string AllNames ="";
             foreach (string SingleNum in AllNum){
                 if (SingleNum != ""){
-                    AllNames += dataGridView1.Columns[Convert.ToInt32(SingleNum) - 1].Name+",";
+                    if (MathV.IsStringInt(SingleNum))
+                    {
+                        AllNames += dataGridView1.Columns[Convert.ToInt32(SingleNum) - 1].Name + ",";
+                    }
                 }
             }
             if (AllNames != ""){
@@ -426,22 +430,20 @@ namespace VISAP商科应用
             }
             return AllNames;
         }
-        public static List<string> ReadVector(DataGridView dataGridView1, int ColNum){
+        public static List<string> ReadVector(DataTable MainDT, int ColNum){
             List <string> Values= new List <string>();
-            for (int i = 0; i < dataGridView1.Rows.Count - 1; i++)
+            int RowsCount = MainDT.Rows.Count;
+            for (int i = 0; i < MainDT.Rows.Count; i++)
             {
-                if (dataGridView1.Rows[i].Cells[ColNum].Value.ToString() != "")
-                {
-                    Values.Add(dataGridView1.Rows[i].Cells[ColNum].Value.ToString());
-                }
+                //if (MainDT.Rows[i][ColNum].ToString() != "")
+                    Values.Add(MainDT.Rows[i][ColNum].ToString());
             }
             return Values;
         }
-        public static DataTable GetSubset(DataGridView dataGridView1, string Cols)
+        public static DataTable GetSubset(DataTable OriginDT, string Cols)
         {
-            DataTable OriginDT = new DataTable();
             DataTable NewDT = new DataTable();
-            OriginDT = dataGridView1.DataSource as DataTable;
+            //OriginDT = dataGridView1.DataSource as DataTable;
             if (OriginDT == null)
             {
                 return null;
@@ -451,13 +453,15 @@ namespace VISAP商科应用
             string UseToAddCol = "";
             int AddTimes = 1;
             string[] ColWanted = Cols.Split(separator);
+            int OriginRowsCount = OriginDT.Rows.Count;
+            int OriginColsCount = OriginDT.Columns.Count;
             if (OriginDT != null)
             {
-                for (int q = 0; q < OriginDT.Rows.Count; q++)
+                for (int q = 0; q < OriginRowsCount; q++)
                 {
                     NewDT.Rows.Add();
                 }
-                for (int i = 0; i < OriginDT.Columns.Count; i++)
+                for (int i = 0; i < OriginColsCount; i++)
                 {
                     foreach (string EachCol in ColWanted)
                     {
@@ -492,17 +496,36 @@ namespace VISAP商科应用
             }
             return -1;
         }
-        private static bool IsStrDouble(string Str)
+        public static bool IsStrDouble(string Str)
         {
             //判断一个字符串是否为双浮点型
+            if (Str.Trim() == "")
+            {
+                //为空则不作判断
+                return false;
+            }
             if (Str.Contains('E'))
             {
                 int position = Str.IndexOf('E');
-                if (Str.Substring(0, position - 1).Contains('E') || Str.Substring(position + 1, Str.Length).Contains('E'))
+                if (Str.Length == position +1)
+                {
+                    //E
+                    return false;
+                }
+                if (Str[position + 1] != '+' && Str[position + 1] != '-')
                 {
                     return false;
                 }
-                if (IsStrDouble(Str.Substring(0, position - 1)) && IsStrDouble(Str.Substring(position + 2, Str.Length)))
+                else if (position + 2 == Str.Length - 1)
+                {
+                    //如果加号或减号后面什么都没有，则判定为非数字
+                    return false; 
+                }
+                if (Str.Substring(0, position - 1).Contains('E') || Str.Substring(position + 1, Str.Length - position - 1).Contains('E'))
+                {
+                    return false;
+                }
+                if (IsStrDouble(Str.Substring(0, position - 1)) && IsStrDouble(Str.Substring(position + 2, Str.Length - position - 2)))
                     //这里加2主要是为了去掉符号
                     //例：3.0E+12
                 {
@@ -570,7 +593,7 @@ namespace VISAP商科应用
                 }
             }
         }
-        public static void BulkImportCSV(DataGridView dataGridView1){
+        public static DataTable BulkImportCSV(){
             //批量导入CSV文件
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             openFileDialog1.InitialDirectory = "c:\\";
@@ -586,9 +609,133 @@ namespace VISAP商科应用
                 {
                     dt.Merge(LoadFromCSVFile(EachFile));
                 }
-                dataGridView1.DataSource = dt;
+                return dt;
             }
+            return null;
             
     }
+        public static void InitDataSet(DataTable dtInfo, ref int nMax, ref int pageCount, ref  int pageCurrent,
+            ref  int nCurrent, Label label_CurrentPage, Label label_TotalPage, DataGridView dataGridView1,TextBox textBox_CurrentPage,int pageSize = 1000)
+        {
+            pageSize = 1000;      //设置页面行数
+            nMax = dtInfo.Rows.Count;
+
+            pageCount = (nMax / pageSize);    //计算出总页数
+
+            if ((nMax % pageSize) > 0) pageCount++;
+
+            pageCurrent = 1;    //当前页数从1开始
+            nCurrent = 0;       //当前记录数从0开始
+
+            LoadData(dtInfo,ref pageCurrent,ref pageCount,ref nMax,ref pageSize,ref nCurrent, textBox_CurrentPage,
+            label_CurrentPage,label_TotalPage, dataGridView1);
+        }
+        public static void LoadData(DataTable dtInfo, ref int pageCurrent,ref int pageCount, ref int nMax,
+            ref int pageSize, ref int nCurrent, TextBox textBox_CurrentPage,
+            Label label_CurrentPage,Label TotalPage,DataGridView dataGridView1)
+        {
+            int nStartPos = 0;   //当前页面开始记录行
+            int nEndPos = 0;     //当前页面结束记录行
+
+            DataTable dtTemp = dtInfo.Clone();   //克隆DataTable结构框架
+
+            if (pageCurrent == pageCount)
+                nEndPos = nMax;
+            else
+                nEndPos = pageSize * pageCurrent;
+
+            nStartPos = nCurrent;
+
+            TotalPage.Text = "共"+pageCount.ToString()+"页,每页"+pageSize.ToString()+"行";
+            textBox_CurrentPage.Text = Convert.ToString(pageCurrent);
+            label_CurrentPage.Text = Convert.ToString(pageCurrent);
+            //从元数据源复制记录行
+            for (int i = nStartPos; i < nEndPos; i++)
+            {
+                dtTemp.ImportRow(dtInfo.Rows[i]);
+                nCurrent++;
+            }
+            dataGridView1.DataSource = dtTemp;
+        }
+        public static DataTable Transposition(DataTable dt,DataTable OriginDT,bool Replace = false)
+        {
+            //转置DataTable
+            //原始DataTable为dt
+            //新的DataTable为dtNew
+            //Replace属性是指替换原表格还是合并在原表格右边
+            //true表示替换，false表示添加
+            DataTable dtNew = new DataTable();
+            int OriginRowsCount = dt.Rows.Count;
+            int OriginColsCount = dt.Columns.Count;
+            foreach (DataRow dr in dt.Rows)
+            {
+                    dtNew.Columns.Add("");
+            }
+            foreach (DataColumn dc in dt.Columns)
+            {
+                dtNew.Rows.Add("");
+            }
+            for (int i = 0; i < OriginColsCount; i++)
+            {
+                for (int j = 0; j < OriginRowsCount;j++)
+                {
+                    dtNew.Rows[i][j] = dt.Rows[j].ItemArray[i];
+                }
+            }
+            if (Replace)
+            {
+                return dtNew;
+            }
+            else
+            {
+                    for (int i = 0; OriginRowsCount + i < OriginColsCount; i++)
+                    {
+                        //添加需要的行
+                        dt.Rows.Add("");
+                    }
+                
+                for (int m = 0; m < OriginRowsCount;m++)
+                {
+                    dt.Columns.Add("");
+                    for (int i = 0; i < OriginColsCount; i++)
+                    {
+                            dt.Rows[i][dt.Columns.Count - 1] = dtNew.Rows[i][m];
+                    }
+                }
+                return dt;
+            }
+                
+        }
+        public static DataTable GetChosenTable(DataTable MainDT,DataGridView dataGridView1)
+        {
+            //获得用户选中的单元格
+            //根据单元格所在行，读取相应的行，拼接成一个DataTable
+            DataTable dt = new DataTable();
+            List<int> AllRows = new List<int>();
+            int OriginCols = MainDT.Columns.Count;
+            for (int i = 0; i < OriginCols; i++)
+            {
+                dt.Columns.Add("");
+            }
+            int AllCellsNum = dataGridView1.SelectedCells.Count;
+            for (int i = 0; i < AllCellsNum; i++)
+            {
+                AllRows.Add(dataGridView1.SelectedCells[i].RowIndex);
+            }
+            AllRows = AllRows.Distinct().ToList();
+            AllRows.Sort();
+            int count = 0;
+            foreach (int EachRow in AllRows)
+            {
+                dt.Rows.Add("");
+                for (int i = 0; i < MainDT.Columns.Count; i++)
+                {
+                    dt.Rows[count][i] = MainDT.Rows[EachRow].ItemArray[i];
+
+                }
+                count++;
+            }
+            return dt;
+        }
     }
 }
