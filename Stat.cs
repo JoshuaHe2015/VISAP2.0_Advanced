@@ -691,6 +691,209 @@ namespace VISAP商科应用
                     return Result.ToString();
                 }
             }
+        private const string HTHeader_Ztest = "      变量名\t      样本数\t        均值\t      标准差\t         z值\t     z临界值\t         p值\r\n";
+        private const string HTHeader_Ttest = "      变量名\t      样本数\t        均值\t      标准差\t         t值\t     t临界值\t         p值\r\n";
+        public static string HypothesisTesting(DataTable MainDT, string ColName,
+            string Statistics, string Operation,string Tail,double Significance,double NullHypothesis)
+        {
+            //假设检验
+            //Statistics为统计量，Operation为运算(>,<,=)
+            //Tail为单尾双尾，这里内容为双侧、左单侧、右单侧
+            //Significance为显著性水平
+            int ColNum = Tabulation.FindCol(MainDT,ColName);
+            string[] Numbers = Tabulation.ReadVector(MainDT, ColNum).ToArray();
+            StringBuilder Result = new StringBuilder();
+            Result.Append("假设检验: ");
+            Result.Append(Statistics);
+            Result.Append("\r\n");
+            Result.Append("显著性水平: ");
+            Result.Append(Significance.ToString());
+            Result.Append("\t");
+            Result.Append(Tail);
+            Result.Append("\r\n原假设: ");
+            Result.Append(Statistics);
+            Result.Append(" ");
+            Result.Append(Operation);
+            Result.Append(" ");
+            Result.Append(NullHypothesis.ToString());
+            Result.Append("\r\n备择假设: ");
+            Result.Append(Statistics);
+            Result.Append(" ");
+            if (Operation == "=")
+            {
+                Result.Append("<>");
+            }
+            else if (Operation == "<=")
+            {
+                Result.Append(">");
+            }
+            else
+            {
+                Result.Append("<");
+            }
+            Result.Append(" ");
+            Result.Append(NullHypothesis.ToString());
+            Result.Append("\r\n");
+            BigDecimal sum = 0;
+            BigDecimal mean = 0;
+            BigDecimal Variance = 0;
+            BigDecimal Sd = 0;
+            //Sd为标准差
+            int count = 0;
+            BigDecimal sum2 = 0;
+            //sum2用于计算数字的平方，方便计算方差
+            Double TempNum = 0;
+            BigDecimal BigTemp = 0;
+            //BigTemp用于记录BigDecimal类型的临时数据
+            double Threshold = 0;
+            //Threshold为临界值
+            double PValue = 0;
+            //Pvalue不用多解释了吧～
+            foreach (string Num in Numbers)
+            {
+                if (Double.TryParse(Num, out TempNum))
+                {
+                    sum += TempNum;
+                    sum2 += (BigDecimal)TempNum * (BigDecimal)TempNum;
+                    count++;
+                }
+            }
+            //遍历了该列所有数字
+            if (Statistics == "均值")
+            {
+                if(count >= 30){
+                    Result.Append(HTHeader_Ztest);
+                }
+                else
+                {
+                    Result.Append(HTHeader_Ttest);
+                }
+                if (count <= 1)
+                {
+                    return "样本数量过少，无法进行假设检验！\r\n";
+                }
+                else
+                {
+                    //开始计算均值和方差
+                    //方差要乘以调整系数
+                    mean = sum / count;
+                    Variance = (sum2 / count - mean * mean) * count / (count - 1);
+
+                    Result.Append(StrManipulation.PadLeftX(StrManipulation.VariableNamePolish(ColName), ' ', 12));
+                    Result.Append("\t");
+                    Result.Append(StrManipulation.PadLeftX(count.ToString(), ' ', 12));
+                    Result.Append("\t");
+                    Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(mean.ToString()), ' ', 12));
+                    Result.Append("\t");
+                    Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(MathV.Sqrt(Variance.ToString()).ToString()), ' ', 12));
+                    Result.Append("\t");
+                    if (count >= 30)
+                    {
+                        //大样本
+                        //z检验
+                        Sd = MathV.Sqrt(Variance.ToString()).ToString();
+                        BigTemp = (mean - NullHypothesis) / (Sd / Math.Sqrt(count));
+                        //BigTemp此时的值为z检验统计量
+                        //样本数count无需大数开方，用普通方法开方即可
+                        if (Tail == "双侧")
+                        {
+                            Threshold = NORMSINV(1 - Significance / 2);
+                            PValue = 2 * (1 - NORMDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString()))));
+                        }
+                        else if (Tail == "左单侧")
+                        {
+                            Threshold = NORMSINV(Significance);
+                            PValue = 1 - NORMDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString())));
+                        }
+                        else if (Tail == "右单侧")
+                        {
+                            Threshold = NORMSINV(1 - Significance);
+                            PValue = 1 - NORMDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString())));
+                        }
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(BigTemp.ToString()), ' ', 12));
+                        Result.Append("\t");
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(Threshold.ToString()), ' ', 12));
+                        Result.Append("\t");
+                        if (PValue <= 0.000001)
+                        {
+                            PValue = 0;
+                        }
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(PValue.ToString()), ' ', 12));
+                        Result.Append("\r\n");
+                        if (PValue < Significance)
+                        {
+                            Result.Append("在");
+                            Result.Append(Significance.ToString());
+                            Result.Append("的显著性水平上拒绝原假设");
+                        }
+                        else
+                        {
+                            Result.Append("在");
+                            Result.Append(Significance.ToString());
+                            Result.Append("的显著性水平上不拒绝原假设");
+                        }
+                    }
+                    else
+                    {
+                        //小样本
+                        //t检验
+                        Sd = MathV.Sqrt(Variance.ToString()).ToString();
+                        BigTemp = (mean - NullHypothesis) / (Sd / Math.Sqrt(count));
+                        //BigTemp此时的值为z检验统计量
+                        //样本数count无需大数开方，用普通方法开方即可
+                        if (Tail == "双侧")
+                        {
+                            Threshold = TINV(Significance / 2/2, count - 1);
+                            //每个放进TINV的值都要除以2，这个bug之后会进行修复
+                            PValue = TDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString())/2), count - 1, 2);
+                        }
+                        else if (Tail == "左单侧")
+                        {
+                            Threshold = TINV(Significance/2, count - 1);
+                            PValue = TDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString()) / 2), count - 1, 1);
+                        }
+                        else if (Tail == "右单侧")
+                        {
+                            Threshold = TINV(Significance/2, count - 1);
+                            PValue = TDIST(Math.Abs(Convert.ToDouble(BigTemp.ToString()) / 2), count - 1, 1);
+                        }
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(BigTemp.ToString()), ' ', 12));
+                        Result.Append("\t");
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(Threshold.ToString()), ' ', 12));
+                        Result.Append("\t");
+                        if (PValue <= 0.000001)
+                        {
+                            PValue = 0;
+                        }
+                        Result.Append(StrManipulation.PadLeftX(MathV.NumberPolish(PValue.ToString()), ' ', 12));
+                        Result.Append("\r\n");
+                        if (PValue < Significance)
+                        {
+                            Result.Append("在");
+                            Result.Append(Significance.ToString());
+                            Result.Append("的显著性水平上拒绝原假设");
+                        }
+                        else
+                        {
+                            Result.Append("在");
+                            Result.Append(Significance.ToString());
+                            Result.Append("的显著性水平上不拒绝原假设");
+                        }
+                    }
+                    Result.Append("\r\n");
+                    return Result.ToString();
+                }
+            }
+            else if (Statistics == "比率")
+            {
+                return "hhh";
+            }
+            else 
+            {
+                //方差
+                return "hhh";
+            }
+        } 
         }
     }
 
